@@ -144,7 +144,7 @@
         const COMPUTER = 2;
         let currentPlayer = PLAYER;
         let gameActive = true;
-
+        
         // Initialize game board (3x3x3)
         let gameBoard = Array(3).fill().map(() => 
             Array(3).fill().map(() => 
@@ -742,9 +742,6 @@
             
             // Trigger the same action as click
             const touch = event.changedTouches[0];
-            const rect = renderer.domElement.getBoundingClientRect();
-            
-            // Use proper coordinates calculation
             const clickEvent = {
                 clientX: touch.clientX,
                 clientY: touch.clientY
