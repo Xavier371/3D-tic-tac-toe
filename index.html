@@ -50,31 +50,42 @@
             -webkit-tap-highlight-color: transparent;
         }
         @media (max-width: 600px) {
+            #info {
+                /* Make top info bar smaller on mobile */
+                padding: 5px;
+            }
+            #info h1 {
+                font-size: 22px;
+                margin: 5px 0;
+            }
+            /* Position the scene higher to avoid overlap with controls */
+            #container canvas {
+                position: absolute;
+                top: -40px; /* Move the canvas up */
+            }
             #slider-container {
                 background-color: rgba(0, 0, 0, 0.5);
-                padding: 20px 0;
+                padding: 15px 0;
                 border-radius: 10px 10px 0 0;
+                /* Push controls fully to the bottom */
+                bottom: 0;
             }
             #spacing-slider {
                 height: 30px;
-                margin: 15px auto;
+                margin: 10px auto;
                 display: block;
             }
             #spacing-label {
                 color: white;
-                font-size: 18px;
+                font-size: 16px;
                 margin-bottom: 5px;
                 display: block; /* Show only on mobile */
             }
             #reset-button, #toggle-center-button {
-                padding: 12px 16px;
-                font-size: 18px;
-                margin-bottom: 10px;
-                min-width: 140px;
-            }
-            #info h1 {
-                font-size: 24px;
-                margin: 5px 0;
+                padding: 10px 14px;
+                font-size: 16px;
+                margin-bottom: 5px;
+                min-width: 120px;
             }
             /* Hide the original label on mobile */
             #original-spacing-label {
@@ -790,6 +801,9 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // Adjust camera for mobile when resizing
+            adjustCameraForMobile();
         }
         
         // Function to toggle center cube
@@ -811,6 +825,27 @@
             // Update spacing to maintain current spacing
             const spacing = parseInt(document.getElementById('spacing-slider').value);
             updateSpacing(spacing);
+        }
+        
+        // For mobile layout adjustments
+        function adjustCameraForMobile() {
+            // Adjust camera and controls for better mobile view
+            if (window.innerWidth <= 600) {
+                // Move camera back a bit for better visibility
+                camera.position.set(5.5, 5.5, 5.5);
+                camera.updateProjectionMatrix();
+                
+                // Adjust controlsToPrevent zoom going too far
+                controls.minDistance = 6;
+                controls.maxDistance = 15;
+            } else {
+                // Reset to desktop settings
+                camera.position.set(5, 5, 5);
+                camera.updateProjectionMatrix();
+                
+                controls.minDistance = 3;
+                controls.maxDistance = 20;
+            }
         }
         
         // Setup the game
@@ -841,6 +876,9 @@
             
             // Setup mobile-specific support
             setupMobileButtonSupport();
+            
+            // Initial camera adjustment for mobile
+            adjustCameraForMobile();
         }
         
         // Animation loop
