@@ -71,9 +71,33 @@
                 bottom: 0;
             }
             #spacing-slider {
-                height: 30px;
-                margin: 10px auto;
+                height: 40px;
+                margin: 15px auto;
                 display: block;
+                width: 80%;
+                -webkit-appearance: none;
+                appearance: none;
+                background: #ddd;
+                border-radius: 20px;
+                outline: none;
+            }
+            #spacing-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 40px;
+                height: 40px;
+                background: #4CAF50;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid white;
+            }
+            #spacing-slider::-moz-range-thumb {
+                width: 40px;
+                height: 40px;
+                background: #4CAF50;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid white;
             }
             #spacing-label {
                 color: white;
