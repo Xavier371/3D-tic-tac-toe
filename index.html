@@ -37,6 +37,9 @@
             width: 300px;
             max-width: 80%;
         }
+        #spacing-label {
+            display: none; /* Hide by default on desktop */
+        }
         #reset-button, #toggle-center-button {
             margin-top: 10px;
             padding: 8px 16px;
@@ -47,14 +50,35 @@
             -webkit-tap-highlight-color: transparent;
         }
         @media (max-width: 600px) {
+            #slider-container {
+                background-color: rgba(0, 0, 0, 0.5);
+                padding: 20px 0;
+                border-radius: 10px 10px 0 0;
+            }
+            #spacing-slider {
+                height: 30px;
+                margin: 15px auto;
+                display: block;
+            }
+            #spacing-label {
+                color: white;
+                font-size: 18px;
+                margin-bottom: 5px;
+                display: block; /* Show only on mobile */
+            }
             #reset-button, #toggle-center-button {
                 padding: 12px 16px;
                 font-size: 18px;
                 margin-bottom: 10px;
+                min-width: 140px;
             }
             #info h1 {
                 font-size: 24px;
                 margin: 5px 0;
+            }
+            /* Hide the original label on mobile */
+            #original-spacing-label {
+                display: none;
             }
         }
     </style>
@@ -67,8 +91,9 @@
             <p id="game-status"></p>
         </div>
         <div id="slider-container">
+            <label id="spacing-label" for="spacing-slider">Cube Spacing: 0%</label>
             <input type="range" id="spacing-slider" min="0" max="100" value="0">
-            <label for="spacing-slider">Cube Spacing</label>
+            <label id="original-spacing-label" for="spacing-slider">Cube Spacing</label>
             <br>
             <button id="reset-button">Reset Game</button>
             <button id="toggle-center-button">Toggle Center Cube</button>
@@ -722,6 +747,42 @@
             slider.addEventListener('touchstart', function(e) {
                 e.stopPropagation();
             });
+            
+            // Add value display for the slider (for both desktop and mobile)
+            slider.addEventListener('input', function() {
+                const isMobile = window.innerWidth <= 600;
+                const label = document.getElementById('spacing-label');
+                const value = parseInt(slider.value);
+                const percentage = value + '%';
+                label.textContent = `Cube Spacing: ${percentage}`;
+                
+                if (isMobile) {
+                    // On mobile, we use the dedicated label
+                    label.style.display = 'block';
+                }
+            });
+            
+            // Check device width and update UI accordingly
+            function updateUIForDevice() {
+                const isMobile = window.innerWidth <= 600;
+                const label = document.getElementById('spacing-label');
+                const value = parseInt(slider.value);
+                
+                if (isMobile) {
+                    label.textContent = `Cube Spacing: ${value}%`;
+                    label.style.display = 'block';
+                    document.getElementById('original-spacing-label').style.display = 'none';
+                } else {
+                    label.style.display = 'none';
+                    document.getElementById('original-spacing-label').style.display = 'inline';
+                }
+            }
+            
+            // Initialize UI based on current device
+            updateUIForDevice();
+            
+            // Update UI when window is resized
+            window.addEventListener('resize', updateUIForDevice);
         }
         
         // Resize handler
