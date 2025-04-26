@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Tic Tac Toe</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            touch-action: none;
+        }
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            z-index: 100;
+        }
+        #slider-container {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+        }
+        #spacing-slider {
+            width: 300px;
+            max-width: 80%;
+        }
+        #reset-button, #toggle-center-button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 5px;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        @media (max-width: 600px) {
+            #reset-button, #toggle-center-button {
+                padding: 12px 16px;
+                font-size: 18px;
+                margin-bottom: 10px;
+            }
+            #info h1 {
+                font-size: 24px;
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="info">
+            <h1>3D Tic Tac Toe</h1>
+            <p id="turn-info">Your turn (X)</p>
+            <p id="game-status"></p>
+        </div>
+        <div id="slider-container">
+            <input type="range" id="spacing-slider" min="0" max="100" value="0">
+            <label for="spacing-slider">Cube Spacing</label>
+            <br>
+            <button id="reset-button">Reset Game</button>
+            <button id="toggle-center-button">Toggle Center Cube</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // Game state
+        const EMPTY = 0;
+        const PLAYER = 1;
+        const COMPUTER = 2;
+        let currentPlayer = PLAYER;
+        let gameActive = true;
+
+        // Initialize game board (3x3x3)
+        let gameBoard = Array(3).fill().map(() => 
+            Array(3).fill().map(() => 
+                Array(3).fill(EMPTY)
+            )
+        );
+
+        // Three.js setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x333333);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(5, 5, 5);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').appendChild(renderer.domElement);
+        
+        // Add orbit controls to rotate the cube
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.25;
+        
+        // Add ambient light
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        
+        // Add directional light
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+        
+        // Materials
+        const transparentMaterial = new THREE.MeshLambertMaterial({
+            color: 0xaaaaaa,
+            transparent: true,
+            opacity: 0.3
+        });
+        
+        const highlightMaterial = new THREE.MeshLambertMaterial({
+            color: 0x88ff88,
+            transparent: true,
+            opacity: 0.5
+        });
+        
+        const playerMaterial = new THREE.MeshLambertMaterial({
+            color: 0x0066ff,
+            transparent: true,
+            opacity: 0.7
+        });
+        
+        const computerMaterial = new THREE.MeshLambertMaterial({
+            color: 0xff3300,
+            transparent: true,
+            opacity: 0.7
+        });
+        
+        const winMaterial = new THREE.MeshLambertMaterial({
+            color: 0xffff00,
+            transparent: true,
+            opacity: 0.7
+        });
+        
+        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+        
+        // Game grid
+        const cubes = [];
+        const cubeSize = 0.9;
+        const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        const edgeGeometry = new THREE.EdgesGeometry(cubeGeometry);
+        
+        // Add variable to track center cube state
+        let centerCubeVisible = true;
+        let centerCube = null;
+
+        // Create the 3x3x3 grid
+        function createGrid() {
+            for (let x = 0; x < 3; x++) {
+                for (let y = 0; y < 3; y++) {
+                    for (let z = 0; z < 3; z++) {
+                        // Skip center cube creation if it should be hidden
+                        if (!centerCubeVisible && x === 1 && y === 1 && z === 1) continue;
+                        
+                        // Create cube
+                        const cube = new THREE.Mesh(cubeGeometry, transparentMaterial);
+                        cube.position.set(x - 1, y - 1, z - 1);
+                        cube.name = `cube-${x}-${y}-${z}`;
+                        
+                        // Store position information
+                        cube.userData = { boardPosition: { x, y, z } };
+                        
+                        // Add edges
+                        const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+                        cube.add(edges);
+                        
+                        scene.add(cube);
+                        cubes.push(cube);
+                        
+                        // Store reference to center cube
+                        if (x === 1 && y === 1 && z === 1) {
+                            centerCube = cube;
+                        }
+                    }
+                }
+            }
+            
+            // Update the button text
+            updateCenterCubeButtonText();
+        }
+        
+        // Update the game board data structure to reflect the center cube state
+        function updateGameBoardForCenterCube() {
+            // If center cube is not visible, mark its position as filled
+            if (!centerCubeVisible) {
+                // Use a special value (e.g., -1) to indicate the center is not available
+                gameBoard[1][1][1] = -1;
+            } else {
+                // Reset to EMPTY if it's visible
+                gameBoard[1][1][1] = EMPTY;
+            }
+        }
+        
+        // Update the button text based on center cube state
+        function updateCenterCubeButtonText() {
+            const button = document.getElementById('toggle-center-button');
+            if (centerCubeVisible) {
+                button.textContent = 'Remove Center';
+            } else {
+                button.textContent = 'Add Center';
+            }
+        }
+        
+        // Update cube spacing
+        function updateSpacing(spacing) {
+            const normalizedSpacing = spacing / 100;
+            
+            for (const cube of cubes) {
+                const pos = cube.userData.boardPosition;
+                cube.position.set(
+                    (pos.x - 1) * (1 + normalizedSpacing),
+                    (pos.y - 1) * (1 + normalizedSpacing),
+                    (pos.z - 1) * (1 + normalizedSpacing)
+                );
+            }
+        }
+        
+        // Raycasting setup
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        
+        // Handle click events
+        function onClick(event) {
+            if (!gameActive || currentPlayer !== PLAYER) return;
+            
+            console.log("Click detected");
+            
+            // Calculate mouse position in normalized device coordinates
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            // Update the raycaster
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Get intersected objects (only check cubes)
+            const intersects = raycaster.intersectObjects(cubes);
+            console.log(`Found ${intersects.length} intersections on click`);
+            
+            if (intersects.length > 0) {
+                const selectedCube = intersects[0].object;
+                const pos = selectedCube.userData.boardPosition;
+                
+                console.log(`Clicked on cube at position [${pos.x},${pos.y},${pos.z}]`);
+                console.log(`Current value: ${gameBoard[pos.x][pos.y][pos.z]}`);
+                
+                // Check if the cube is empty
+                if (gameBoard[pos.x][pos.y][pos.z] === EMPTY) {
+                    console.log("Making player move");
+                    
+                    // Update game board
+                    gameBoard[pos.x][pos.y][pos.z] = PLAYER;
+                    
+                    // Update cube appearance
+                    selectedCube.material = playerMaterial;
+                    
+                    // Check for win
+                    if (checkWin(PLAYER)) {
+                        endGame("You win!");
+                        return;
+                    }
+                    
+                    // Check for draw
+                    if (checkDraw()) {
+                        endGame("It's a draw!");
+                        return;
+                    }
+                    
+                    // Computer's turn
+                    currentPlayer = COMPUTER;
+                    document.getElementById('turn-info').textContent = "Computer's turn (O)";
+                    
+                    // Delay computer move for better UX
+                    setTimeout(makeComputerMove, 500);
+                }
+            }
+        }
+        
+        // Handle mouse move for highlighting
+        function onMouseMove(event) {
+            if (!gameActive || currentPlayer !== PLAYER) return;
+            
+            // Update mouse coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            // Reset all highlighting
+            for (const cube of cubes) {
+                const pos = cube.userData.boardPosition;
+                
+                // If the cube is empty, reset to transparent material
+                if (gameBoard[pos.x][pos.y][pos.z] === EMPTY) {
+                    cube.material = transparentMaterial;
+                }
+            }
+            
+            // Cast ray to find hovered object
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(cubes);
+            
+            // Highlight the first empty cube
+            for (let i = 0; i < intersects.length; i++) {
+                const cube = intersects[i].object;
+                const pos = cube.userData.boardPosition;
+                
+                if (gameBoard[pos.x][pos.y][pos.z] === EMPTY) {
+                    cube.material = highlightMaterial;
+                    break;
+                }
+            }
+        }
+        
+        // Computer move logic
+        function makeComputerMove() {
+            if (!gameActive) return;
+            
+            console.log("Computer making move");
+            
+            // Try to find a winning move
+            const winningMove = findWinningMove(COMPUTER);
+            if (winningMove) {
+                makeMoveAtPosition(winningMove, COMPUTER);
+                
+                // Check for win with proper highlighting
+                if (checkWin(COMPUTER)) {
+                    endGame("Computer wins!");
+                    return;
+                }
+            }
+            
+            // Try to block player's winning move
+            const blockingMove = findWinningMove(PLAYER);
+            if (blockingMove) {
+                makeMoveAtPosition(blockingMove, COMPUTER);
+            } else {
+                // Take center if available
+                if (gameBoard[1][1][1] === EMPTY) {
+                    makeMoveAtPosition({x: 1, y: 1, z: 1}, COMPUTER);
+                } else {
+                    // Take a random empty position
+                    const emptyPositions = [];
+                    
+                    for (let x = 0; x < 3; x++) {
+                        for (let y = 0; y < 3; y++) {
+                            for (let z = 0; z < 3; z++) {
+                                if (gameBoard[x][y][z] === EMPTY) {
+                                    emptyPositions.push({x, y, z});
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (emptyPositions.length > 0) {
+                        const randomPos = emptyPositions[Math.floor(Math.random() * emptyPositions.length)];
+                        makeMoveAtPosition(randomPos, COMPUTER);
+                    }
+                }
+            }
+            
+            // Check for win
+            if (checkWin(COMPUTER)) {
+                endGame("Computer wins!");
+                return;
+            }
+            
+            // Check for draw
+            if (checkDraw()) {
+                endGame("It's a draw!");
+                return;
+            }
+            
+            // Player's turn
+            currentPlayer = PLAYER;
+            document.getElementById('turn-info').textContent = "Your turn (X)";
+            console.log("Back to player's turn");
+        }
+        
+        // Make a move at a specific position
+        function makeMoveAtPosition(pos, player) {
+            gameBoard[pos.x][pos.y][pos.z] = player;
+            
+            // Find and update the corresponding cube
+            for (const cube of cubes) {
+                const cubePos = cube.userData.boardPosition;
+                
+                if (cubePos.x === pos.x && cubePos.y === pos.y && cubePos.z === pos.z) {
+                    cube.material = player === PLAYER ? playerMaterial : computerMaterial;
+                    break;
+                }
+            }
+        }
+        
+        // Find a winning move for the given player
+        function findWinningMove(player) {
+            for (let x = 0; x < 3; x++) {
+                for (let y = 0; y < 3; y++) {
+                    for (let z = 0; z < 3; z++) {
+                        if (gameBoard[x][y][z] === EMPTY) {
+                            // Try this move
+                            gameBoard[x][y][z] = player;
+                            
+                            // Check if it wins
+                            if (checkWin(player, true)) {
+                                // Undo the move
+                                gameBoard[x][y][z] = EMPTY;
+                                return {x, y, z};
+                            }
+                            
+                            // Undo the move
+                            gameBoard[x][y][z] = EMPTY;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+        
+        // Check for a win
+        function checkWin(player, checkOnly = false) {
+            // Define all possible winning lines
+            function checkLine(a, b, c) {
+                // Skip lines that pass through the center if center cube is not visible
+                if (!centerCubeVisible && 
+                    ((a.x === 1 && a.y === 1 && a.z === 1) || 
+                     (b.x === 1 && b.y === 1 && b.z === 1) || 
+                     (c.x === 1 && c.y === 1 && c.z === 1))) {
+                    return false;
+                }
+                
+                return (gameBoard[a.x][a.y][a.z] === player &&
+                        gameBoard[b.x][b.y][b.z] === player &&
+                        gameBoard[c.x][c.y][c.z] === player);
+            }
+            
+            // Check rows, columns, and depths
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    // Rows (x-axis)
+                    if (checkLine({x:0,y:i,z:j}, {x:1,y:i,z:j}, {x:2,y:i,z:j})) {
+                        if (!checkOnly) {
+                            highlightWinningLine([{x:0,y:i,z:j}, {x:1,y:i,z:j}, {x:2,y:i,z:j}]);
+                        }
+                        return true;
+                    }
+                    
+                    // Columns (y-axis)
+                    if (checkLine({x:i,y:0,z:j}, {x:i,y:1,z:j}, {x:i,y:2,z:j})) {
+                        if (!checkOnly) {
+                            highlightWinningLine([{x:i,y:0,z:j}, {x:i,y:1,z:j}, {x:i,y:2,z:j}]);
+                        }
+                        return true;
+                    }
+                    
+                    // Depths (z-axis)
+                    if (checkLine({x:i,y:j,z:0}, {x:i,y:j,z:1}, {x:i,y:j,z:2})) {
+                        if (!checkOnly) {
+                            highlightWinningLine([{x:i,y:j,z:0}, {x:i,y:j,z:1}, {x:i,y:j,z:2}]);
+                        }
+                        return true;
+                    }
+                }
+            }
+            
+            // Check diagonals in each plane
+            for (let i = 0; i < 3; i++) {
+                // XY plane diagonals
+                if (checkLine({x:0,y:0,z:i}, {x:1,y:1,z:i}, {x:2,y:2,z:i})) {
+                    if (!checkOnly) {
+                        highlightWinningLine([{x:0,y:0,z:i}, {x:1,y:1,z:i}, {x:2,y:2,z:i}]);
+                    }
+                    return true;
+                }
+                if (checkLine({x:2,y:0,z:i}, {x:1,y:1,z:i}, {x:0,y:2,z:i})) {
+                    if (!checkOnly) {
+                        highlightWinningLine([{x:2,y:0,z:i}, {x:1,y:1,z:i}, {x:0,y:2,z:i}]);
+                    }
+                    return true;
+                }
+                
+                // XZ plane diagonals
+                if (checkLine({x:0,y:i,z:0}, {x:1,y:i,z:1}, {x:2,y:i,z:2})) {
+                    if (!checkOnly) {
+                        highlightWinningLine([{x:0,y:i,z:0}, {x:1,y:i,z:1}, {x:2,y:i,z:2}]);
+                    }
+                    return true;
+                }
+                if (checkLine({x:2,y:i,z:0}, {x:1,y:i,z:1}, {x:0,y:i,z:2})) {
+                    if (!checkOnly) {
+                        highlightWinningLine([{x:2,y:i,z:0}, {x:1,y:i,z:1}, {x:0,y:i,z:2}]);
+                    }
+                    return true;
+                }
+                
+                // YZ plane diagonals
+                if (checkLine({x:i,y:0,z:0}, {x:i,y:1,z:1}, {x:i,y:2,z:2})) {
+                    if (!checkOnly) {
+                        highlightWinningLine([{x:i,y:0,z:0}, {x:i,y:1,z:1}, {x:i,y:2,z:2}]);
+                    }
+                    return true;
+                }
+                if (checkLine({x:i,y:2,z:0}, {x:i,y:1,z:1}, {x:i,y:0,z:2})) {
+                    if (!checkOnly) {
+                        highlightWinningLine([{x:i,y:2,z:0}, {x:i,y:1,z:1}, {x:i,y:0,z:2}]);
+                    }
+                    return true;
+                }
+            }
+            
+            // Check 3D diagonals
+            if (checkLine({x:0,y:0,z:0}, {x:1,y:1,z:1}, {x:2,y:2,z:2})) {
+                if (!checkOnly) {
+                    highlightWinningLine([{x:0,y:0,z:0}, {x:1,y:1,z:1}, {x:2,y:2,z:2}]);
+                }
+                return true;
+            }
+            if (checkLine({x:0,y:0,z:2}, {x:1,y:1,z:1}, {x:2,y:2,z:0})) {
+                if (!checkOnly) {
+                    highlightWinningLine([{x:0,y:0,z:2}, {x:1,y:1,z:1}, {x:2,y:2,z:0}]);
+                }
+                return true;
+            }
+            if (checkLine({x:0,y:2,z:0}, {x:1,y:1,z:1}, {x:2,y:0,z:2})) {
+                if (!checkOnly) {
+                    highlightWinningLine([{x:0,y:2,z:0}, {x:1,y:1,z:1}, {x:2,y:0,z:2}]);
+                }
+                return true;
+            }
+            if (checkLine({x:0,y:2,z:2}, {x:1,y:1,z:1}, {x:2,y:0,z:0})) {
+                if (!checkOnly) {
+                    highlightWinningLine([{x:0,y:2,z:2}, {x:1,y:1,z:1}, {x:2,y:0,z:0}]);
+                }
+                return true;
+            }
+            
+            return false;
+        }
+        
+        // Highlight a winning line
+        function highlightWinningLine(positions) {
+            // Highlight the winning cubes
+            for (const position of positions) {
+                for (const cube of cubes) {
+                    const pos = cube.userData.boardPosition;
+                    
+                    if (pos.x === position.x && pos.y === position.y && pos.z === position.z) {
+                        cube.material = winMaterial;
+                        break;
+                    }
+                }
+            }
+            
+            // Add a line connecting the winning positions
+            const lineGeometry = new THREE.BufferGeometry();
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 3 });
+            
+            // Get adjusted positions based on spacing
+            const spacing = parseInt(document.getElementById('spacing-slider').value) / 100;
+            const points = positions.map(pos => 
+                new THREE.Vector3(
+                    (pos.x - 1) * (1 + spacing),
+                    (pos.y - 1) * (1 + spacing),
+                    (pos.z - 1) * (1 + spacing)
+                )
+            );
+            
+            lineGeometry.setFromPoints(points);
+            const line = new THREE.Line(lineGeometry, lineMaterial);
+            scene.add(line);
+        }
+        
+        // Check for a draw
+        function checkDraw() {
+            for (let x = 0; x < 3; x++) {
+                for (let y = 0; y < 3; y++) {
+                    for (let z = 0; z < 3; z++) {
+                        if (gameBoard[x][y][z] === EMPTY) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+        
+        // End the game
+        function endGame(message) {
+            gameActive = false;
+            document.getElementById('game-status').textContent = message;
+            document.getElementById('turn-info').textContent = "Game Over";
+        }
+        
+        // Reset the game
+        function resetGame() {
+            // Reset the game board
+            gameBoard = Array(3).fill().map(() => 
+                Array(3).fill().map(() => 
+                    Array(3).fill(EMPTY)
+                )
+            );
+            
+            // If center cube is not visible, mark it as unavailable
+            if (!centerCubeVisible) {
+                gameBoard[1][1][1] = -1;
+            }
+            
+            // Reset cube appearances
+            for (const cube of cubes) {
+                cube.material = transparentMaterial;
+            }
+            
+            // Remove any winning lines
+            scene.children.forEach(child => {
+                if (child instanceof THREE.Line && !(child instanceof THREE.LineSegments)) {
+                    scene.remove(child);
+                }
+            });
+            
+            // Reset game state
+            gameActive = true;
+            currentPlayer = PLAYER;
+            document.getElementById('turn-info').textContent = "Your turn (X)";
+            document.getElementById('game-status').textContent = "";
+        }
+        
+        // Touch handlers
+        function onTouchStart(event) {
+            event.preventDefault();
+            
+            if (!gameActive || currentPlayer !== PLAYER) return;
+            
+            // Get the touch position
+            const touch = event.touches[0];
+            const rect = renderer.domElement.getBoundingClientRect();
+            
+            // Calculate normalized device coordinates properly
+            mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            // Update the raycaster
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Highlight on touch
+            for (const cube of cubes) {
+                const pos = cube.userData.boardPosition;
+                if (gameBoard[pos.x][pos.y][pos.z] === EMPTY) {
+                    cube.material = transparentMaterial;
+                }
+            }
+            
+            const intersects = raycaster.intersectObjects(cubes);
+            for (let i = 0; i < intersects.length; i++) {
+                const cube = intersects[i].object;
+                const pos = cube.userData.boardPosition;
+                
+                if (gameBoard[pos.x][pos.y][pos.z] === EMPTY) {
+                    cube.material = highlightMaterial;
+                    break;
+                }
+            }
+        }
+        
+        function onTouchEnd(event) {
+            event.preventDefault();
+            
+            if (!gameActive || currentPlayer !== PLAYER) return;
+            
+            // Trigger the same action as click
+            const touch = event.changedTouches[0];
+            const rect = renderer.domElement.getBoundingClientRect();
+            
+            // Use proper coordinates calculation
+            const clickEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            };
+            
+            onClick(clickEvent);
+        }
+        
+        // Disable scrolling on mobile
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.nodeName === 'CANVAS') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Handle touch events on buttons with proper click behavior
+        function setupMobileButtonSupport() {
+            const resetBtn = document.getElementById('reset-button');
+            const toggleBtn = document.getElementById('toggle-center-button');
+            const slider = document.getElementById('spacing-slider');
+            
+            // Prevent default touch behavior on buttons to avoid double-tap zoom
+            [resetBtn, toggleBtn].forEach(btn => {
+                btn.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                });
+                
+                btn.addEventListener('touchend', function(e) {
+                    e.preventDefault();
+                    btn.click();
+                });
+            });
+            
+            // Make slider touch-friendly
+            slider.addEventListener('touchstart', function(e) {
+                e.stopPropagation();
+            });
+        }
+        
+        // Resize handler
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Function to toggle center cube
+        function toggleCenterCube() {
+            centerCubeVisible = !centerCubeVisible;
+            
+            // Remove all cubes first
+            for (const cube of cubes) {
+                scene.remove(cube);
+            }
+            cubes.length = 0;
+            
+            // Recreate grid without/with center cube
+            createGrid();
+            
+            // Reset game
+            resetGame();
+            
+            // Update spacing to maintain current spacing
+            const spacing = parseInt(document.getElementById('spacing-slider').value);
+            updateSpacing(spacing);
+        }
+        
+        // Setup the game
+        function init() {
+            // Create the game grid
+            createGrid();
+            
+            // Initial button text update
+            updateCenterCubeButtonText();
+            
+            // Add event listeners
+            window.addEventListener('click', onClick, false);
+            window.addEventListener('mousemove', onMouseMove, false);
+            window.addEventListener('touchstart', onTouchStart, false);
+            window.addEventListener('touchend', onTouchEnd, false);
+            window.addEventListener('resize', onWindowResize, false);
+            
+            // Slider listener
+            document.getElementById('spacing-slider').addEventListener('input', function(e) {
+                updateSpacing(parseInt(e.target.value));
+            });
+            
+            // Reset button listener
+            document.getElementById('reset-button').addEventListener('click', resetGame);
+            
+            // Toggle center cube button listener
+            document.getElementById('toggle-center-button').addEventListener('click', toggleCenterCube);
+            
+            // Setup mobile-specific support
+            setupMobileButtonSupport();
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Start the game
+        init();
+        animate();
+    </script>
+</body>
+</html> 
