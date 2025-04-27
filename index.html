@@ -52,28 +52,32 @@
         @media (max-width: 600px) {
             #info {
                 /* Make top info bar smaller on mobile */
-                padding: 5px;
+                padding: 3px;
             }
             #info h1 {
-                font-size: 22px;
-                margin: 5px 0;
+                font-size: 20px;
+                margin: 3px 0;
+            }
+            #info p {
+                margin: 3px 0;
+                font-size: 14px;
             }
             /* Position the scene higher to avoid overlap with controls */
             #container canvas {
                 position: absolute;
-                top: -40px; /* Move the canvas up */
+                top: -60px; /* Move the canvas up more */
             }
             #slider-container {
                 background-color: rgba(0, 0, 0, 0.7);
-                padding: 15px 0;
-                padding-bottom: 25px;
+                padding: 8px 0;
+                padding-bottom: 15px;
                 border-radius: 10px 10px 0 0;
                 /* Push controls fully to the bottom */
                 bottom: 0;
             }
             #spacing-slider {
-                height: 40px;
-                margin: 15px auto;
+                height: 30px;
+                margin: 10px auto;
                 display: block;
                 width: 80%;
                 -webkit-appearance: none;
@@ -85,16 +89,16 @@
             #spacing-slider::-webkit-slider-thumb {
                 -webkit-appearance: none;
                 appearance: none;
-                width: 40px;
-                height: 40px;
+                width: 30px;
+                height: 30px;
                 background: #4CAF50;
                 border-radius: 50%;
                 cursor: pointer;
                 border: 2px solid white;
             }
             #spacing-slider::-moz-range-thumb {
-                width: 40px;
-                height: 40px;
+                width: 30px;
+                height: 30px;
                 background: #4CAF50;
                 border-radius: 50%;
                 cursor: pointer;
@@ -102,20 +106,24 @@
             }
             #spacing-label {
                 color: white;
-                font-size: 16px;
+                font-size: 14px;
                 margin-bottom: 5px;
                 display: block; /* Show only on mobile */
             }
+            .button-container {
+                display: flex;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
             #reset-button, #toggle-center-button, #toggle-mode-button {
-                padding: 12px 18px;
-                font-size: 18px;
-                margin-bottom: 10px;
-                min-width: 140px;
+                padding: 8px 12px;
+                font-size: 14px;
+                margin: 5px;
+                min-width: 100px;
                 background-color: #4CAF50;
                 color: white;
                 border: 2px solid white;
                 border-radius: 6px;
-                margin: 0 10px 10px 10px;
             }
             /* Hide the original label on mobile */
             #original-spacing-label {
@@ -136,9 +144,11 @@
             <input type="range" id="spacing-slider" min="0" max="100" value="0">
             <label id="original-spacing-label" for="spacing-slider">Cube Spacing</label>
             <br>
-            <button id="reset-button">Reset Game</button>
-            <button id="toggle-center-button">Toggle Center Cube</button>
-            <button id="toggle-mode-button">1-Player Mode</button>
+            <div class="button-container">
+                <button id="reset-button">Reset Game</button>
+                <button id="toggle-center-button">Toggle Center Cube</button>
+                <button id="toggle-mode-button">1-Player Mode</button>
+            </div>
         </div>
     </div>
 
