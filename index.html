@@ -40,7 +40,7 @@
         #spacing-label {
             display: none; /* Hide by default on desktop */
         }
-        #reset-button, #toggle-center-button {
+        #reset-button, #toggle-center-button, #toggle-mode-button {
             margin-top: 10px;
             padding: 8px 16px;
             font-size: 16px;
@@ -106,7 +106,7 @@
                 margin-bottom: 5px;
                 display: block; /* Show only on mobile */
             }
-            #reset-button, #toggle-center-button {
+            #reset-button, #toggle-center-button, #toggle-mode-button {
                 padding: 12px 18px;
                 font-size: 18px;
                 margin-bottom: 10px;
@@ -138,6 +138,7 @@
             <br>
             <button id="reset-button">Reset Game</button>
             <button id="toggle-center-button">Toggle Center Cube</button>
+            <button id="toggle-mode-button">1-Player Mode</button>
         </div>
     </div>
 
@@ -150,6 +151,7 @@
         const COMPUTER = 2;
         let currentPlayer = PLAYER;
         let gameActive = true;
+        let twoPlayerMode = false;
         
         // Initialize game board (3x3x3)
         let gameBoard = Array(3).fill().map(() => 
@@ -303,7 +305,7 @@
         
         // Handle click events
         function onClick(event) {
-            if (!gameActive || currentPlayer !== PLAYER) return;
+            if (!gameActive || (currentPlayer !== PLAYER && !twoPlayerMode)) return;
             
             console.log("Click detected");
             
@@ -330,15 +332,16 @@
                 if (gameBoard[pos.x][pos.y][pos.z] === EMPTY) {
                     console.log("Making player move");
                     
-                    // Update game board
-                    gameBoard[pos.x][pos.y][pos.z] = PLAYER;
+                    // Update game board with current player's mark
+                    gameBoard[pos.x][pos.y][pos.z] = currentPlayer;
                     
                     // Update cube appearance
-                    selectedCube.material = playerMaterial;
+                    selectedCube.material = currentPlayer === PLAYER ? playerMaterial : computerMaterial;
                     
                     // Check for win
-                    if (checkWin(PLAYER)) {
-                        endGame("You win!");
+                    if (checkWin(currentPlayer)) {
+                        const winner = currentPlayer === PLAYER ? "Player 1" : (twoPlayerMode ? "Player 2" : "Computer");
+                        endGame(`${winner} wins!`);
                         return;
                     }
                     
@@ -348,19 +351,27 @@
                         return;
                     }
                     
-                    // Computer's turn
-                    currentPlayer = COMPUTER;
-                    document.getElementById('turn-info').textContent = "Computer's turn (O)";
-                    
-                    // Delay computer move for better UX
-                    setTimeout(makeComputerMove, 500);
+                    // Switch turns
+                    if (twoPlayerMode) {
+                        // In two-player mode, alternate between PLAYER and COMPUTER
+                        currentPlayer = currentPlayer === PLAYER ? COMPUTER : PLAYER;
+                        document.getElementById('turn-info').textContent = currentPlayer === PLAYER ? 
+                            "Player 1's turn (X)" : "Player 2's turn (O)";
+                    } else {
+                        // Computer's turn in single-player mode
+                        currentPlayer = COMPUTER;
+                        document.getElementById('turn-info').textContent = "Computer's turn (O)";
+                        
+                        // Delay computer move for better UX
+                        setTimeout(makeComputerMove, 500);
+                    }
                 }
             }
         }
         
         // Handle mouse move for highlighting
         function onMouseMove(event) {
-            if (!gameActive || currentPlayer !== PLAYER) return;
+            if (!gameActive || (currentPlayer !== PLAYER && !twoPlayerMode)) return;
             
             // Update mouse coordinates
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -668,7 +679,28 @@
         function endGame(message) {
             gameActive = false;
             document.getElementById('game-status').textContent = message;
-            document.getElementById('turn-info').textContent = "Game Over";
+            
+            if (twoPlayerMode) {
+                document.getElementById('turn-info').textContent = "Game Over";
+            } else {
+                document.getElementById('turn-info').textContent = "Game Over";
+            }
+        }
+        
+        // Function to toggle game mode
+        function toggleGameMode() {
+            twoPlayerMode = !twoPlayerMode;
+            
+            // Update button text
+            const button = document.getElementById('toggle-mode-button');
+            if (twoPlayerMode) {
+                button.textContent = '2-Player Mode';
+            } else {
+                button.textContent = '1-Player Mode';
+            }
+            
+            // Reset game with new mode
+            resetGame();
         }
         
         // Reset the game
@@ -700,7 +732,14 @@
             // Reset game state
             gameActive = true;
             currentPlayer = PLAYER;
-            document.getElementById('turn-info').textContent = "Your turn (X)";
+            
+            // Update turn info based on game mode
+            if (twoPlayerMode) {
+                document.getElementById('turn-info').textContent = "Player 1's turn (X)";
+            } else {
+                document.getElementById('turn-info').textContent = "Your turn (X)";
+            }
+            
             document.getElementById('game-status').textContent = "";
         }
         
@@ -708,7 +747,7 @@
         function onTouchStart(event) {
             event.preventDefault();
             
-            if (!gameActive || currentPlayer !== PLAYER) return;
+            if (!gameActive || (currentPlayer !== PLAYER && !twoPlayerMode)) return;
             
             // Get the touch position
             const touch = event.touches[0];
@@ -744,7 +783,7 @@
         function onTouchEnd(event) {
             event.preventDefault();
             
-            if (!gameActive || currentPlayer !== PLAYER) return;
+            if (!gameActive || (currentPlayer !== PLAYER && !twoPlayerMode)) return;
             
             // Trigger the same action as click
             const touch = event.changedTouches[0];
@@ -767,10 +806,11 @@
         function setupMobileButtonSupport() {
             const resetBtn = document.getElementById('reset-button');
             const toggleBtn = document.getElementById('toggle-center-button');
+            const modeBtn = document.getElementById('toggle-mode-button');
             const slider = document.getElementById('spacing-slider');
             
             // Prevent default touch behavior on buttons to avoid double-tap zoom
-            [resetBtn, toggleBtn].forEach(btn => {
+            [resetBtn, toggleBtn, modeBtn].forEach(btn => {
                 btn.addEventListener('touchstart', function(e) {
                     e.preventDefault();
                 });
@@ -900,6 +940,9 @@
             
             // Toggle center cube button listener
             document.getElementById('toggle-center-button').addEventListener('click', toggleCenterCube);
+            
+            // Toggle game mode button listener
+            document.getElementById('toggle-mode-button').addEventListener('click', toggleGameMode);
             
             // Setup mobile-specific support
             setupMobileButtonSupport();
