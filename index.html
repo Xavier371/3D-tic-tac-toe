@@ -429,34 +429,14 @@
                     endGame("Computer wins!");
                     return;
                 }
-            }
-            
-            // Try to block player's winning move
-            const blockingMove = findWinningMove(PLAYER);
-            if (blockingMove) {
-                makeMoveAtPosition(blockingMove, COMPUTER);
             } else {
-                // Take center if available
-                if (gameBoard[1][1][1] === EMPTY) {
-                    makeMoveAtPosition({x: 1, y: 1, z: 1}, COMPUTER);
+                // Try to block player's winning move
+                const blockingMove = findWinningMove(PLAYER);
+                if (blockingMove) {
+                    makeMoveAtPosition(blockingMove, COMPUTER);
                 } else {
-                    // Take a random empty position
-                    const emptyPositions = [];
-                    
-                    for (let x = 0; x < 3; x++) {
-                        for (let y = 0; y < 3; y++) {
-                            for (let z = 0; z < 3; z++) {
-                                if (gameBoard[x][y][z] === EMPTY) {
-                                    emptyPositions.push({x, y, z});
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (emptyPositions.length > 0) {
-                        const randomPos = emptyPositions[Math.floor(Math.random() * emptyPositions.length)];
-                        makeMoveAtPosition(randomPos, COMPUTER);
-                    }
+                    // Enhanced strategic move
+                    makeSmartMove();
                 }
             }
             
@@ -475,7 +455,165 @@
             // Player's turn
             currentPlayer = PLAYER;
             document.getElementById('turn-info').textContent = "Your turn (X)";
-            console.log("Back to player's turn");
+        }
+        
+        // Make a smarter move based on the current board state
+        function makeSmartMove() {
+            // Take center if available (highest priority strategic position)
+            if (centerCubeVisible && gameBoard[1][1][1] === EMPTY) {
+                makeMoveAtPosition({x: 1, y: 1, z: 1}, COMPUTER);
+                return;
+            }
+            
+            // Get all empty positions
+            const emptyPositions = getAllEmptyPositions();
+            if (emptyPositions.length === 0) return;
+            
+            // Rate positions by strategic value
+            const ratedPositions = emptyPositions.map(pos => {
+                const score = ratePosition(pos);
+                return { pos, score };
+            });
+            
+            // Sort by highest score
+            ratedPositions.sort((a, b) => b.score - a.score);
+            
+            // Take the highest rated position
+            makeMoveAtPosition(ratedPositions[0].pos, COMPUTER);
+        }
+        
+        // Get all empty positions on the board
+        function getAllEmptyPositions() {
+            const emptyPositions = [];
+            
+            for (let x = 0; x < 3; x++) {
+                for (let y = 0; y < 3; y++) {
+                    for (let z = 0; z < 3; z++) {
+                        if (gameBoard[x][y][z] === EMPTY) {
+                            emptyPositions.push({x, y, z});
+                        }
+                    }
+                }
+            }
+            
+            return emptyPositions;
+        }
+        
+        // Rate a position's strategic value
+        function ratePosition(pos) {
+            let score = 0;
+            
+            // Check if this is a corner (most valuable after center)
+            const isCorner = (pos.x === 0 || pos.x === 2) && 
+                             (pos.y === 0 || pos.y === 2) && 
+                             (pos.z === 0 || pos.z === 2);
+            
+            // Check if this is an edge-center position
+            const isEdgeCenter = 
+                ((pos.x === 1) && (pos.y === 0 || pos.y === 2) && (pos.z === 0 || pos.z === 2)) ||
+                ((pos.y === 1) && (pos.x === 0 || pos.x === 2) && (pos.z === 0 || pos.z === 2)) ||
+                ((pos.z === 1) && (pos.x === 0 || pos.x === 2) && (pos.y === 0 || pos.y === 2));
+            
+            // Check if this is a face-center position
+            const isFaceCenter = 
+                ((pos.x === 1) && (pos.y === 1) && (pos.z === 0 || pos.z === 2)) ||
+                ((pos.x === 1) && (pos.y === 0 || pos.y === 2) && (pos.z === 1)) ||
+                ((pos.x === 0 || pos.x === 2) && (pos.y === 1) && (pos.z === 1));
+            
+            // Base scores for position types
+            if (isCorner) {
+                score += 3;
+            } else if (isFaceCenter) {
+                score += 2;
+            } else if (isEdgeCenter) {
+                score += 1;
+            }
+            
+            // Count potential lines this position affects
+            const lines = getLinesForPosition(pos);
+            
+            // For each line, evaluate its strategic value
+            for (const line of lines) {
+                // Skip lines that go through center if center is hidden
+                if (!centerCubeVisible && line.some(p => p.x === 1 && p.y === 1 && p.z === 1)) {
+                    continue;
+                }
+                
+                let computerCount = 0;
+                let playerCount = 0;
+                let emptyCount = 0;
+                
+                // Count marks in this line
+                for (const p of line) {
+                    if (p.x === pos.x && p.y === pos.y && p.z === pos.z) {
+                        continue; // Skip the position we're evaluating
+                    }
+                    
+                    if (gameBoard[p.x][p.y][p.z] === COMPUTER) {
+                        computerCount++;
+                    } else if (gameBoard[p.x][p.y][p.z] === PLAYER) {
+                        playerCount++;
+                    } else {
+                        emptyCount++;
+                    }
+                }
+                
+                // Offensive potential (our marks already in line)
+                if (computerCount === 1 && playerCount === 0) {
+                    score += 2; // Good offensive opportunity
+                }
+                
+                // Defensive value (block opponent's lines)
+                if (playerCount === 1 && computerCount === 0) {
+                    score += 1; // Some defensive value
+                }
+            }
+            
+            return score;
+        }
+        
+        // Get all lines that include this position
+        function getLinesForPosition(pos) {
+            const { x, y, z } = pos;
+            const lines = [];
+            
+            // Rows (along x-axis)
+            lines.push([{x: 0, y, z}, {x: 1, y, z}, {x: 2, y, z}]);
+            
+            // Columns (along y-axis)
+            lines.push([{x, y: 0, z}, {x, y: 1, z}, {x, y: 2, z}]);
+            
+            // Depths (along z-axis)
+            lines.push([{x, y, z: 0}, {x, y, z: 1}, {x, y, z: 2}]);
+            
+            // Diagonals in XY plane
+            if (x === y) lines.push([{x: 0, y: 0, z}, {x: 1, y: 1, z}, {x: 2, y: 2, z}]);
+            if (x + y === 2) lines.push([{x: 0, y: 2, z}, {x: 1, y: 1, z}, {x: 2, y: 0, z}]);
+            
+            // Diagonals in XZ plane
+            if (x === z) lines.push([{x: 0, y, z: 0}, {x: 1, y, z: 1}, {x: 2, y, z: 2}]);
+            if (x + z === 2) lines.push([{x: 0, y, z: 2}, {x: 1, y, z: 1}, {x: 2, y, z: 0}]);
+            
+            // Diagonals in YZ plane
+            if (y === z) lines.push([{x, y: 0, z: 0}, {x, y: 1, z: 1}, {x, y: 2, z: 2}]);
+            if (y + z === 2) lines.push([{x, y: 0, z: 2}, {x, y: 1, z: 1}, {x, y: 2, z: 0}]);
+            
+            // 3D diagonals
+            const threeDDiagonals = [
+                [{x: 0, y: 0, z: 0}, {x: 1, y: 1, z: 1}, {x: 2, y: 2, z: 2}],
+                [{x: 0, y: 0, z: 2}, {x: 1, y: 1, z: 1}, {x: 2, y: 2, z: 0}],
+                [{x: 0, y: 2, z: 0}, {x: 1, y: 1, z: 1}, {x: 2, y: 0, z: 2}],
+                [{x: 0, y: 2, z: 2}, {x: 1, y: 1, z: 1}, {x: 2, y: 0, z: 0}]
+            ];
+            
+            // Only add 3D diagonals that contain this position
+            for (const diagonal of threeDDiagonals) {
+                if (diagonal.some(p => p.x === x && p.y === y && p.z === z)) {
+                    lines.push(diagonal);
+                }
+            }
+            
+            return lines;
         }
         
         // Make a move at a specific position
